@@ -1,44 +1,28 @@
 import asyncio
 import websockets
 
-clients = set()
+connected_clients = set()
 
-# Broadcast message to all clients
-async def broadcast(message):
-    # Send the message to all connected clients
-    for client in clients:
-        try:
-            await client.send(message)
-        except:
-            clients.remove(client)
-
-# Handle each client connection
-async def handle_client(websocket):
-    # Register the new client
-    clients.add(websocket)
+async def handler(websocket):
+    connected_clients.add(websocket)
     print(f"New connection from {websocket.remote_address}")
 
     try:
-        while True:
-            # Wait for a message from the client
-            message = await websocket.recv()
-            print(f"Received message: {message}")
-
-            # Broadcast the message to all other clients
-            await broadcast(message)
-    except websockets.exceptions.ConnectionClosed:
-        print(f"Connection closed from {websocket.remote_address}")
+        async for message in websocket:
+            print(f"Received from {websocket.remote_address}: {message}")
+            # await broadcast(message)
+    except websockets.ConnectionClosed as e:
+        print(f"Client {websocket.remote_address} disconnected: {e}")
     finally:
-        # Unregister the client and close the connection
-        clients.remove(websocket)
-        await websocket.close()
+        connected_clients.remove(websocket)
 
-# Start the WebSocket server
-async def start_server():
-    server = await websockets.serve(handle_client, "127.0.0.1", 8765)
-    print("Server started, waiting for clients to connect...")
+# def broadcast(message):
+#     return asyncio.gather(*(client.send(message) for client in connected_clients if client.open))
+
+async def main():
+    server = await websockets.serve(handler, '127.0.0.1', 9990)
+    print("Server started on ws://localhost:9990")
     await server.wait_closed()
 
-# Run the server
 if __name__ == "__main__":
-    asyncio.run(start_server())
+    asyncio.run(main())

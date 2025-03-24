@@ -1,33 +1,27 @@
 import asyncio
 import websockets
 
-# Function to handle receiving messages from the server
-async def receive_messages(websocket):
-    try:
-        while True:
-            message = await websocket.recv()
-            print(f"New message: {message}")
-    except websockets.exceptions.ConnectionClosed:
-        print("Connection closed.")
-
-# Function to send messages to the server
 async def send_messages(websocket):
     while True:
-        message = input("Enter your message: ")
+        message = input("You: ")
         await websocket.send(message)
+        await asyncio.sleep(0.1)  # Prevent message collisions
 
-# Main function to start the client
-async def start_client():
-    url = "ws://127.0.0.1:8765"  # Server address
-    async with websockets.connect(url) as websocket:
-        print("Connected to the chatroom!")
-        
-        # Start receiving messages in the background
-        asyncio.create_task(receive_messages(websocket))
-        
-        # Start sending messages to the server
-        await send_messages(websocket)
+async def receive_messages(websocket):
+    try:
+        async for message in websocket:
+            print(f"Friend: {message}")
+    except websockets.ConnectionClosed:
+        print("Server closed the connection.")
 
-# Run the client
+async def main():
+    uri = "ws://localhost:9990"
+    try:
+        async with websockets.connect(uri, ping_interval=10, ping_timeout=20) as websocket:
+            print("Connected to chatroom.")
+            await asyncio.gather(send_messages(websocket), receive_messages(websocket))
+    except ConnectionRefusedError:
+        print("Failed to connect to the server. Ensure the server is running.")
+
 if __name__ == "__main__":
-    asyncio.run(start_client())
+    asyncio.run(main())
